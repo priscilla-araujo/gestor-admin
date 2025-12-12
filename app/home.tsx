@@ -2,8 +2,10 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
+import { doc, getDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   SafeAreaView,
   StatusBar,
@@ -13,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { db } from "../firebaseConfig";
 
 const COLORS = {
   primary: "#007BFF",
@@ -28,6 +31,11 @@ type Tile = {
   label: string;
   iconFamily: "Ionicons" | "MaterialIcons";
   iconName: string;
+};
+
+type UserProfile = {
+  name?: string;
+  condoName?: string;
 };
 
 const tiles: Tile[] = [
@@ -60,6 +68,37 @@ const HomeScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
 
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // 🔹 Buscar nome e nome do condomínio do Firestore
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfile(null);
+        setLoadingProfile(false);
+        return;
+      }
+
+      try {
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          setProfile(snap.data() as UserProfile);
+        } else {
+          setProfile({});
+        }
+      } catch (err) {
+        console.log("Erro ao buscar perfil:", err);
+        setProfile({});
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -70,11 +109,22 @@ const HomeScreen: React.FC = () => {
   };
 
   const renderTile = ({ item }: { item: Tile }) => (
-    <TouchableOpacity style={styles.tile}>
-      <View style={styles.tileIconWrapper}>{renderTileIcon(item)}</View>
-      <Text style={styles.tileLabel}>{item.label}</Text>
-    </TouchableOpacity>
-  );
+  <TouchableOpacity
+    style={styles.tile}
+    onPress={() => {
+      if (item.label === "Comunicados") {
+        router.push("/comunicados");
+      }
+    }}
+  >
+    <View style={styles.tileIconWrapper}>{renderTileIcon(item)}</View>
+    <Text style={styles.tileLabel}>{item.label}</Text>
+  </TouchableOpacity>
+);
+
+
+  const displayName = profile?.name || user?.displayName || "Morador";
+  const displayCondoName = profile?.condoName || "Seu condomínio";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -85,10 +135,13 @@ const HomeScreen: React.FC = () => {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.welcomeText}>Bem-vindo,</Text>
-            <Text style={styles.userName}>
-              {user?.email ?? "Morador"}
-            </Text>
+            <Text style={styles.welcomeText}>Bem-vindo(a),</Text>
+
+            {loadingProfile ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.userName}>{displayName}</Text>
+            )}
           </View>
 
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -96,7 +149,7 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.condoName}>Condomínio Paineiras</Text>
+        <Text style={styles.condoName}>{displayCondoName}</Text>
         <Text style={styles.condoSubtitle}>
           Acesse os principais serviços do seu condomínio
         </Text>

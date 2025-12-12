@@ -65,7 +65,7 @@ const LoginScreen: React.FC = () => {
         </LinearGradient>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Entrar</Text>
+          <Text style={styles.cardTitle}></Text>
 
           <TextInput
             style={styles.input}

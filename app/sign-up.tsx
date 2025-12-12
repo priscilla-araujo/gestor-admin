@@ -1,7 +1,11 @@
 // app/sign-up.tsx
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { router } from "expo-router";
+import {
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
@@ -25,8 +29,6 @@ const COLORS = {
 };
 
 const SignUpScreen: React.FC = () => {
-  const router = useRouter();
-
   const [name, setName] = useState("");
   const [condoName, setCondoName] = useState("");
   const [floor, setFloor] = useState("");
@@ -59,58 +61,60 @@ const SignUpScreen: React.FC = () => {
         password
       );
 
-      // ✅ atualizar displayName no Auth
+      // ✅ salvar dados
       if (cred.user) {
-        await updateProfile(cred.user, {
-          displayName: name,
-        });
+        await updateProfile(cred.user, { displayName: name });
 
-        // ✅ salvar dados extras no Firestore
         const userRef = doc(db, "users", cred.user.uid);
         await setDoc(userRef, {
           name,
           condoName,
           floor,
           block,
-          fraction: fraction || null,
+          fraction: fraction ? fraction : null,
           email: email.trim(),
           createdAt: serverTimestamp(),
         });
       }
 
-      // ✅ mensagem de sucesso
-      Alert.alert(
-        "Cadastro realizado!",
-        "Seu usuário foi criado com sucesso.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              // limpar formulário (opcional)
-              setName("");
-              setCondoName("");
-              setFloor("");
-              setBlock("");
-              setFraction("");
-              setEmail("");
-              setPassword("");
+      // ✅ evita que o app “pule” de tela por login automático
+      await signOut(auth);
 
-              // voltar para tela de login
-              router.replace("/");
-            },
-          },
-        ]
-      );
+      // ✅ limpar (opcional)
+      setName("");
+      setCondoName("");
+      setFloor("");
+      setBlock("");
+      setFraction("");
+      setEmail("");
+      setPassword("");
+
+      // ✅ volta pro login (index) de forma garantida
+      router.dismissAll();
+      router.replace("./");
+
+      // ✅ alerta por cima do login
+      setTimeout(() => {
+        Alert.alert("Cadastro realizado!", "Usuário criado com sucesso.");
+      }, 250);
     } catch (error: any) {
-      console.log(error);
-      let message = "Não foi possível criar sua conta.";
+      console.log("Erro no cadastro:", error);
+
+      let message = "Não foi possível gravar o cadastro. Tente novamente.";
 
       if (error?.code === "auth/email-already-in-use") {
-        message = "Este email já está em uso.";
-      } else if (error?.code === "auth/weak-password") {
-        message = "A senha deve ter pelo menos 6 caracteres.";
+        message = "Este email já está cadastrado. Use outro email ou faça login.";
       } else if (error?.code === "auth/invalid-email") {
-        message = "Email inválido.";
+        message = "Email inválido. Verifique e tente novamente.";
+      } else if (error?.code === "auth/weak-password") {
+        message = "Senha fraca. Use pelo menos 6 caracteres.";
+      } else if (error?.code === "auth/operation-not-allowed") {
+        message =
+          "Cadastro por email/senha não está ativado no Firebase (Authentication).";
+      } else if (error?.code === "auth/network-request-failed") {
+        message = "Falha de rede. Verifique sua internet e tente novamente.";
+      } else if (typeof error?.message === "string") {
+        message = error.message;
       }
 
       Alert.alert("Erro ao cadastrar", message);
@@ -214,13 +218,16 @@ const SignUpScreen: React.FC = () => {
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.primaryButtonText}>Cadastrar</Text>
+              <Text style={styles.primaryButtonText}>Gravar</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ marginTop: 10 }}
-            onPress={() => router.replace("/")}
+            onPress={() => {
+              router.dismissAll();
+              router.replace("./");
+            }}
           >
             <Text style={styles.linkText}>Já tenho conta</Text>
           </TouchableOpacity>
@@ -231,10 +238,7 @@ const SignUpScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     paddingTop: 80,
     paddingBottom: 32,
@@ -242,16 +246,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  appTitle: {
-    color: "#FFF",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  appSubtitle: {
-    color: "#E3EEFF",
-    fontSize: 14,
-    marginTop: 6,
-  },
+  appTitle: { color: "#FFF", fontSize: 24, fontWeight: "700" },
+  appSubtitle: { color: "#E3EEFF", fontSize: 14, marginTop: 6 },
   card: {
     marginTop: -30,
     marginHorizontal: 20,
@@ -281,13 +277,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E0E5F2",
   },
-  row: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  col: {
-    flex: 1,
-  },
+  row: { flexDirection: "row", gap: 10 },
+  col: { flex: 1 },
   primaryButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: 14,
@@ -295,11 +286,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  primaryButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  primaryButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
   linkText: {
     marginTop: 4,
     textAlign: "center",

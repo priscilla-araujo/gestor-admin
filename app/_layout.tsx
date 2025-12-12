@@ -20,16 +20,22 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider
-        value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-      >
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
+
+          <Stack.Screen name="sign-up" options={{ title: "Criar conta" }} />
+          <Stack.Screen name="comunicados" options={{ headerShown: false }} />
+
+
           <Stack.Screen
             name="forgot-password"
             options={{ title: "Recuperar senha" }}
           />
+
           <Stack.Screen name="home" options={{ headerShown: false }} />
+     
+
           {/* rotas geradas pelo template */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
@@ -37,6 +43,7 @@ export default function RootLayout() {
             options={{ presentation: "modal", title: "Modal" }}
           />
         </Stack>
+
         <StatusBar style="auto" />
       </ThemeProvider>
     </AuthProvider>
