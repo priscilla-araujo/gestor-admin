@@ -42,14 +42,11 @@ const tiles: Tile[] = [
   { id: "1", label: "Boletos", iconFamily: "Ionicons", iconName: "barcode-outline" },
   { id: "2", label: "Comunicados", iconFamily: "Ionicons", iconName: "megaphone-outline" },
   { id: "3", label: "Reservas", iconFamily: "Ionicons", iconName: "calendar-outline" },
-  { id: "4", label: "Formas de\npagamento", iconFamily: "MaterialIcons", iconName: "payment" },
   { id: "5", label: "Documentos", iconFamily: "Ionicons", iconName: "document-text-outline" },
   { id: "6", label: "Galeria de\nfotos", iconFamily: "Ionicons", iconName: "images-outline" },
-  { id: "7", label: "Prestação\nde contas", iconFamily: "Ionicons", iconName: "stats-chart-outline" },
   { id: "8", label: "Solicitações", iconFamily: "Ionicons", iconName: "checkmark-done-outline" },
-  { id: "9", label: "Ocorrências", iconFamily: "Ionicons", iconName: "alert-circle-outline" },
   { id: "10", label: "Assembleias", iconFamily: "Ionicons", iconName: "people-outline" },
-  { id: "11", label: "Fale com o\nPorteiro", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
+  { id: "11", label: "Fale com o\nGestor", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
   { id: "12", label: "Visitantes", iconFamily: "Ionicons", iconName: "person-add-outline" },
 ];
 
