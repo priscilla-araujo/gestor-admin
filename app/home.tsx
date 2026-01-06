@@ -46,7 +46,7 @@ const tiles: Tile[] = [
   { id: "6", label: "Galeria de\nfotos", iconFamily: "Ionicons", iconName: "images-outline" },
   { id: "8", label: "Solicitações", iconFamily: "Ionicons", iconName: "checkmark-done-outline" },
   { id: "10", label: "Assembleias", iconFamily: "Ionicons", iconName: "people-outline" },
-  { id: "11", label: "Fale com o\nGestor", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
+  { id: "11", label: "Contatos", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
   { id: "12", label: "Visitantes", iconFamily: "Ionicons", iconName: "person-add-outline" },
 ];
 
@@ -105,16 +105,55 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const renderTile = ({ item }: { item: Tile }) => (
+  //aqui ligação icon com pag
+const renderTile = ({ item }: { item: Tile }) => (
   <TouchableOpacity
     style={styles.tile}
     onPress={() => {
-      if (item.label === "Comunicados") {
-        router.push("/comunicados");
+      switch (item.label) {
+        case "Comunicados":
+          router.push("/comunicados");
+          break;
+
+        case "Assembleias":
+          router.push("/assembleias");
+          break;
+
+        case "Boletos":
+          router.push("/boletos");
+          break;
+
+        case "Documentos":
+          router.push("/documentos");
+          break;
+        
+        case "Galeria de\nfotos":
+          router.push("/galeria");
+          break;
+
+        case "Reservas":
+          router.push("/reservas");
+          break;
+        
+        case "Solicitações":
+          router.push("/solicitacoes");
+          break;
+
+        case "Visitantes":
+          router.push("/visitantes"); 
+          break;
+
+          case "Contatos":
+            router.push("/contatos")
+
+        default:
+          break;
       }
     }}
   >
-    <View style={styles.tileIconWrapper}>{renderTileIcon(item)}</View>
+    <View style={styles.tileIconWrapper}>
+      {renderTileIcon(item)}
+    </View>
     <Text style={styles.tileLabel}>{item.label}</Text>
   </TouchableOpacity>
 );

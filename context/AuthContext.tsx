@@ -6,18 +6,13 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import React, {
-  ReactNode,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { ReactNode, createContext, useContext, useEffect, useMemo, useState } from "react";
 import { auth } from "../firebaseConfig";
 
 type AuthContextType = {
   user: User | null;
   loading: boolean;
+  isGestor: boolean; // ✅ ADICIONADO
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -28,6 +23,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ ADICIONADO: identifica o gestor pelo email
+  const isGestor = useMemo(() => {
+    const email = user?.email?.toLowerCase();
+    return email === "gestor@gestor.com";
+  }, [user?.email]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
@@ -61,9 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, login, logout, forgotPassword }}
-    >
+    <AuthContext.Provider value={{ user, loading, isGestor, login, logout, forgotPassword }}>
       {children}
     </AuthContext.Provider>
   );

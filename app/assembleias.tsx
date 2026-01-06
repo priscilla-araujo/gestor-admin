@@ -1,4 +1,4 @@
-// app/comunicados.tsx
+// app/assembleias.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -44,77 +44,91 @@ const COLORS = {
   successBorder: "#B8FFD0",
 };
 
-type Comunicado = {
+type Assembleia = {
   id: string;
   title: string;
-  body: string;
+  date: string; // ISO
+  description: string;
   createdAt: number;
 };
 
-function formatWhen(ts: number) {
-  try {
-    return new Date(ts).toLocaleDateString("pt-PT", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return "";
-  }
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-export default function ComunicadosScreen() {
+// input simples: "2026-01-06 19:30" -> ISO
+function toISOFromInput(v: string) {
+  const s = v.trim();
+  // aceita "YYYY-MM-DDTHH:mm" também
+  const normalized = s.includes("T") ? s : s.replace(" ", "T");
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString();
+}
+
+export default function AssembleiasScreen() {
   const { isGestor } = useAuth();
 
-  const comunicadosRef = useMemo(() => collection(db, "comunicados"), []);
-
-  const [items, setItems] = useState<Comunicado[]>([]);
+  const [items, setItems] = useState<Assembleia[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+
+  // modal detalhes (todos)
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selected, setSelected] = useState<Assembleia | null>(null);
+
+  // modal criar/editar (gestor)
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [dateInput, setDateInput] = useState(""); // "YYYY-MM-DD HH:mm"
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [msg, setMsg] = useState<{ type: "error" | "success" | ""; text: string }>({
     type: "",
     text: "",
   });
 
-  // Modal detalhes (todos)
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [selected, setSelected] = useState<Comunicado | null>(null);
-
-  // Modal criar/editar (gestor)
-  const [editOpen, setEditOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [saving, setSaving] = useState(false);
+  // ⚠️ mantém "Assembleias" com A maiúsculo
+  const assembleiasRef = useMemo(() => collection(db, "Assembleias"), []);
 
   useEffect(() => {
-    const q = query(comunicadosRef, orderBy("createdAt", "desc"));
+    const q = query(assembleiasRef, orderBy("date", "desc"));
 
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const list: Comunicado[] = snap.docs.map((d) => {
+        const list: Assembleia[] = snap.docs.map((d) => {
           const v = d.data() as any;
           return {
             id: d.id,
-            title: v.title ?? "Comunicado",
-            body: v.body ?? "",
+            title: v.title ?? v.Title ?? "Assembleia",
+            date: v.date ?? new Date().toISOString(),
+            description: v.description ?? v.Description ?? "",
             createdAt: v.createdAt ?? 0,
           };
         });
+
         setItems(list);
         setLoadingList(false);
       },
       (err) => {
-        console.log("ERRO Firestore (comunicados):", err);
+        console.log("ERRO Firestore (Assembleias):", err);
         setLoadingList(false);
       }
     );
 
     return () => unsub();
-  }, [comunicadosRef]);
+  }, [assembleiasRef]);
 
-  const openDetails = (item: Comunicado) => {
+  const openDetails = (item: Assembleia) => {
     setSelected(item);
     setDetailsOpen(true);
   };
@@ -123,15 +137,22 @@ export default function ComunicadosScreen() {
     setMsg({ type: "", text: "" });
     setEditId(null);
     setTitle("");
-    setBody("");
+    setDateInput("");
+    setDescription("");
     setEditOpen(true);
   };
 
-  const openEdit = (item: Comunicado) => {
+  const openEdit = (item: Assembleia) => {
     setMsg({ type: "", text: "" });
     setEditId(item.id);
     setTitle(item.title);
-    setBody(item.body);
+    // mostra em formato amigável
+    const d = new Date(item.date);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    setDateInput(
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+    );
+    setDescription(item.description);
     setEditOpen(true);
   };
 
@@ -141,33 +162,39 @@ export default function ComunicadosScreen() {
     setMsg({ type: "", text: "" });
 
     const t = title.trim();
-    const b = body.trim();
+    const desc = description.trim();
+    const iso = toISOFromInput(dateInput);
 
-    if (!t || !b) {
-      setMsg({ type: "error", text: "Preencha título e descrição." });
+    if (!t || !desc || !iso) {
+      setMsg({
+        type: "error",
+        text: "Preencha título, descrição e uma data válida (ex: 2026-01-06 19:30).",
+      });
       return;
     }
 
     setSaving(true);
     try {
       if (editId) {
-        await updateDoc(doc(db, "comunicados", editId), {
+        await updateDoc(doc(db, "Assembleias", editId), {
           title: t,
-          body: b,
+          description: desc,
+          date: iso,
         });
-        setMsg({ type: "success", text: "Comunicado atualizado!" });
+        setMsg({ type: "success", text: "Assembleia atualizada!" });
       } else {
-        await addDoc(comunicadosRef, {
+        await addDoc(assembleiasRef, {
           title: t,
-          body: b,
+          description: desc,
+          date: iso,
           createdAt: Date.now(),
         });
-        setMsg({ type: "success", text: "Comunicado criado!" });
+        setMsg({ type: "success", text: "Assembleia criada!" });
       }
 
       setEditOpen(false);
     } catch (e) {
-      console.log("Erro ao salvar comunicado:", e);
+      console.log("Erro ao salvar assembleia:", e);
       setMsg({ type: "error", text: "Erro ao salvar. Verifique regras do Firestore." });
     } finally {
       setSaving(false);
@@ -179,25 +206,25 @@ export default function ComunicadosScreen() {
     setMsg({ type: "", text: "" });
 
     try {
-      await deleteDoc(doc(db, "comunicados", id));
-      setMsg({ type: "success", text: "Comunicado excluído." });
+      await deleteDoc(doc(db, "Assembleias", id));
+      setMsg({ type: "success", text: "Assembleia excluída." });
     } catch (e) {
-      console.log("Erro ao excluir comunicado:", e);
+      console.log("Erro ao excluir assembleia:", e);
       setMsg({ type: "error", text: "Erro ao excluir. Verifique regras do Firestore." });
     }
   }
 
-  const renderItem = ({ item }: { item: Comunicado }) => (
+  const renderItem = ({ item }: { item: Assembleia }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.title}
         </Text>
-        <Text style={styles.cardDate}>{formatWhen(item.createdAt)}</Text>
+        <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
       </View>
 
-      <Text style={styles.cardBody} numberOfLines={4}>
-        {item.body}
+      <Text style={styles.cardBody} numberOfLines={3}>
+        {item.description}
       </Text>
 
       <View style={styles.rowActions}>
@@ -236,15 +263,16 @@ export default function ComunicadosScreen() {
           <Ionicons name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Comunicados</Text>
-        <Text style={styles.headerSubtitle}>Veja avisos e atualizações do condomínio</Text>
+        <Text style={styles.headerTitle}>Assembleias</Text>
+        <Text style={styles.headerSubtitle}>Veja as reuniões do condomínio</Text>
       </LinearGradient>
 
       <View style={styles.content}>
+        {/* ✅ botão criar somente gestor */}
         {isGestor && (
           <TouchableOpacity style={styles.createBtn} activeOpacity={0.85} onPress={openCreate}>
             <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-            <Text style={styles.createBtnText}>Novo comunicado</Text>
+            <Text style={styles.createBtnText}>Adicionar assembleia</Text>
           </TouchableOpacity>
         )}
 
@@ -259,7 +287,7 @@ export default function ComunicadosScreen() {
             renderItem={renderItem}
             contentContainerStyle={{ paddingBottom: 18 }}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={<Text style={styles.emptyText}>Nenhum comunicado cadastrado.</Text>}
+            ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma assembleia cadastrada.</Text>}
           />
         )}
       </View>
@@ -278,8 +306,8 @@ export default function ComunicadosScreen() {
             {selected && (
               <>
                 <Text style={styles.detailsTitle}>{selected.title}</Text>
-                <Text style={styles.detailsDate}>{formatWhen(selected.createdAt)}</Text>
-                <Text style={styles.detailsBody}>{selected.body}</Text>
+                <Text style={styles.detailsDate}>{formatDate(selected.date)}</Text>
+                <Text style={styles.detailsBody}>{selected.description}</Text>
               </>
             )}
           </View>
@@ -291,7 +319,7 @@ export default function ComunicadosScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalTop}>
-              <Text style={styles.modalTitle}>{editId ? "Editar comunicado" : "Novo comunicado"}</Text>
+              <Text style={styles.modalTitle}>{editId ? "Editar assembleia" : "Nova assembleia"}</Text>
               <TouchableOpacity style={styles.closeBtn} onPress={() => setEditOpen(false)}>
                 <Ionicons name="close" size={20} color={COLORS.text} />
               </TouchableOpacity>
@@ -301,16 +329,26 @@ export default function ComunicadosScreen() {
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Ex: Aviso de manutenção"
+              placeholder="Ex: Assembleia Geral"
               placeholderTextColor="#9AA3B2"
               style={styles.input}
             />
 
+            <Text style={styles.label}>Data e hora</Text>
+            <TextInput
+              value={dateInput}
+              onChangeText={setDateInput}
+              placeholder="YYYY-MM-DD HH:mm (ex: 2026-01-06 19:30)"
+              placeholderTextColor="#9AA3B2"
+              style={styles.input}
+              autoCapitalize="none"
+            />
+
             <Text style={styles.label}>Descrição</Text>
             <TextInput
-              value={body}
-              onChangeText={setBody}
-              placeholder="Digite o comunicado..."
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Pauta e informações..."
               placeholderTextColor="#9AA3B2"
               style={[styles.input, styles.textarea]}
               multiline
@@ -368,6 +406,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: "#FFF", fontSize: 20, fontWeight: "700" },
   headerSubtitle: { color: "#E3EEFF", fontSize: 13, marginTop: 4 },
 
+  // ✅ espaço (sem colar no header)
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
 
   createBtn: {
@@ -401,6 +440,7 @@ const styles = StyleSheet.create({
   cardBody: { color: COLORS.muted, fontSize: 13, lineHeight: 18 },
 
   rowActions: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 8 },
   actionText: { color: COLORS.primary, fontWeight: "700" },
 
@@ -415,7 +455,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     backgroundColor: "#FFF",
   },
-  smallBtnDanger: { backgroundColor: "#FFECEC", borderColor: "#FFD0D0" },
+  smallBtnDanger: {
+    backgroundColor: "#FFECEC",
+    borderColor: "#FFD0D0",
+  },
   smallBtnText: { fontWeight: "800", color: COLORS.primary },
 
   emptyText: { color: COLORS.muted, textAlign: "center", marginTop: 12 },
