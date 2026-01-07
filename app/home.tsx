@@ -39,14 +39,14 @@ type UserProfile = {
 };
 
 const tiles: Tile[] = [
-  { id: "1", label: "Boletos", iconFamily: "Ionicons", iconName: "barcode-outline" },
+  { id: "1", label: "Fatura", iconFamily: "Ionicons", iconName: "barcode-outline" },
   { id: "2", label: "Comunicados", iconFamily: "Ionicons", iconName: "megaphone-outline" },
   { id: "3", label: "Reservas", iconFamily: "Ionicons", iconName: "calendar-outline" },
   { id: "5", label: "Documentos", iconFamily: "Ionicons", iconName: "document-text-outline" },
   { id: "6", label: "Galeria de\nfotos", iconFamily: "Ionicons", iconName: "images-outline" },
   { id: "8", label: "Solicitações", iconFamily: "Ionicons", iconName: "checkmark-done-outline" },
   { id: "10", label: "Assembleias", iconFamily: "Ionicons", iconName: "people-outline" },
-  { id: "11", label: "Contatos", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
+  { id: "11", label: "Contactos", iconFamily: "Ionicons", iconName: "chatbubbles-outline" },
   { id: "12", label: "Visitantes", iconFamily: "Ionicons", iconName: "person-add-outline" },
 ];
 
@@ -119,7 +119,7 @@ const renderTile = ({ item }: { item: Tile }) => (
           router.push("/assembleias");
           break;
 
-        case "Boletos":
+        case "Fatura":
           router.push("/boletos");
           break;
 
@@ -143,7 +143,7 @@ const renderTile = ({ item }: { item: Tile }) => (
           router.push("/visitantes"); 
           break;
 
-          case "Contatos":
+          case "Contactos":
             router.push("/contatos")
 
         default:
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
     color: "#E3EEFF",
     fontSize: 13,
     marginTop: 4,
+    marginBottom: 8,
   },
   logoutButton: {
     backgroundColor: "rgba(255,255,255,0.18)",
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: -24,
+    marginTop: -20,
   },
   gridCard: {
     backgroundColor: COLORS.cardBg,

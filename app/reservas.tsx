@@ -9,10 +9,10 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Platform,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,7 +21,14 @@ import {
   View,
 } from "react-native";
 
-import { collection, doc, getDocs, query, setDoc, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  runTransaction,
+  where,
+} from "firebase/firestore";
 
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebaseConfig";
@@ -69,7 +76,6 @@ function isValidHM(v: string) {
 }
 
 export default function ReservasScreen() {
-  // ✅ mudança 1: pegar isGestor também
   const { user, isGestor } = useAuth();
 
   const [openForm, setOpenForm] = useState(false);
@@ -79,9 +85,12 @@ export default function ReservasScreen() {
   const [horaHM, setHoraHM] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [loadingLast, setLoadingLast] = useState(false);
 
-  // ✅ gestor: lista de todas
+  // ✅ usuário: lista de todas as reservas dele
+  const [loadingMinhas, setLoadingMinhas] = useState(false);
+  const [minhasReservas, setMinhasReservas] = useState<Reserva[]>([]);
+
+  // ✅ gestor: lista de todas as reservas
   const [loadingAll, setLoadingAll] = useState(false);
   const [allReservas, setAllReservas] = useState<Reserva[]>([]);
 
@@ -89,8 +98,6 @@ export default function ReservasScreen() {
     type: "",
     text: "",
   });
-
-  const [lastReserva, setLastReserva] = useState<Reserva | null>(null);
 
   // iOS modals
   const [iosDateModal, setIosDateModal] = useState(false);
@@ -100,45 +107,43 @@ export default function ReservasScreen() {
 
   const reservasRef = useMemo(() => collection(db, "reservas"), []);
 
-  // ✅ usuário comum: última reserva dele (sem orderBy)
-  async function carregarUltimaReserva() {
+  function makeSlotId(area: string, data: string, hora: string) {
+    const horaSafe = hora.replace(":", "-");
+    return `${area}_${data}_${horaSafe}`;
+  }
+
+  // ✅ Usuário: carregar TODAS as reservas dele (sem orderBy p/ evitar índice)
+  async function carregarMinhasReservas() {
     if (!user?.uid) {
-      setLastReserva(null);
+      setMinhasReservas([]);
       return;
     }
 
-    setLoadingLast(true);
+    setLoadingMinhas(true);
     try {
-      const qLast = query(
+      const qMine = query(
         reservasRef,
         where("uid", "==", user.uid),
         where("area", "==", "ginasio")
       );
-      const snap = await getDocs(qLast);
 
-      if (snap.empty) {
-        setLastReserva(null);
-        return;
-      }
+      const snap = await getDocs(qMine);
 
-      let latest: Reserva | null = null;
-      snap.forEach((d) => {
-        const data = d.data() as Reserva;
-        if (!latest || (data.createdAt ?? 0) > (latest.createdAt ?? 0)) {
-          latest = data;
-        }
-      });
+      const list: Reserva[] = snap.docs
+        .map((d) => d.data() as Reserva)
+        .filter((r) => !!r?.data && !!r?.hora && !!r?.nome);
 
-      setLastReserva(latest);
+      list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      setMinhasReservas(list);
     } catch (e) {
-      console.log("Erro ao carregar última reserva:", e);
-      setLastReserva(null);
+      console.log("Erro ao carregar minhas reservas:", e);
+      setMinhasReservas([]);
     } finally {
-      setLoadingLast(false);
+      setLoadingMinhas(false);
     }
   }
 
-  // ✅ gestor: carregar todas as reservas (sem orderBy)
+  // ✅ Gestor: carregar TODAS as reservas
   async function carregarTodasReservas() {
     if (!isGestor) {
       setAllReservas([]);
@@ -154,9 +159,7 @@ export default function ReservasScreen() {
         .map((d) => d.data() as Reserva)
         .filter((r) => !!r?.data && !!r?.hora && !!r?.nome);
 
-      // ordena no app (desc)
       list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-
       setAllReservas(list);
     } catch (e) {
       console.log("Erro ao carregar todas reservas:", e);
@@ -167,10 +170,8 @@ export default function ReservasScreen() {
   }
 
   useEffect(() => {
-    // usuário: sempre
-    carregarUltimaReserva();
-    // gestor: também
-    carregarTodasReservas();
+    carregarMinhasReservas();
+    if (isGestor) carregarTodasReservas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, isGestor]);
 
@@ -180,8 +181,7 @@ export default function ReservasScreen() {
     if (Platform.OS === "web") return;
 
     if (Platform.OS === "android") {
-      const base =
-        dataISO && isValidISODate(dataISO) ? new Date(`${dataISO}T00:00:00`) : new Date();
+      const base = dataISO && isValidISODate(dataISO) ? new Date(`${dataISO}T00:00:00`) : new Date();
       DateTimePickerAndroid.open({
         value: isNaN(base.getTime()) ? new Date() : base,
         mode: "date",
@@ -194,8 +194,7 @@ export default function ReservasScreen() {
       return;
     }
 
-    const base =
-      dataISO && isValidISODate(dataISO) ? new Date(`${dataISO}T00:00:00`) : new Date();
+    const base = dataISO && isValidISODate(dataISO) ? new Date(`${dataISO}T00:00:00`) : new Date();
     setTempDate(base);
     setIosDateModal(true);
   };
@@ -206,8 +205,7 @@ export default function ReservasScreen() {
     if (Platform.OS === "web") return;
 
     if (Platform.OS === "android") {
-      const base =
-        horaHM && isValidHM(horaHM) ? new Date(`1970-01-01T${horaHM}:00`) : new Date();
+      const base = horaHM && isValidHM(horaHM) ? new Date(`1970-01-01T${horaHM}:00`) : new Date();
       DateTimePickerAndroid.open({
         value: isNaN(base.getTime()) ? new Date() : base,
         mode: "time",
@@ -220,16 +218,10 @@ export default function ReservasScreen() {
       return;
     }
 
-    const base =
-      horaHM && isValidHM(horaHM) ? new Date(`1970-01-01T${horaHM}:00`) : new Date();
+    const base = horaHM && isValidHM(horaHM) ? new Date(`1970-01-01T${horaHM}:00`) : new Date();
     setTempTime(base);
     setIosTimeModal(true);
   };
-
-  function makeSlotId(area: string, data: string, hora: string) {
-    const horaSafe = hora.replace(":", "-");
-    return `${area}_${data}_${horaSafe}`;
-  }
 
   async function handleAgendar() {
     setMsg({ type: "", text: "" });
@@ -257,6 +249,7 @@ export default function ReservasScreen() {
     try {
       const area = "ginasio" as const;
       const slotId = makeSlotId(area, dataISO, horaHM);
+      const ref = doc(db, "reservas", slotId);
 
       const payload: Reserva = {
         area,
@@ -267,25 +260,35 @@ export default function ReservasScreen() {
         createdAt: Date.now(),
       };
 
-      await setDoc(doc(db, "reservas", slotId), payload);
+      // ✅ não substitui: só cria se não existir
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists()) throw new Error("SLOT_JA_EXISTE");
+        tx.set(ref, payload);
+      });
 
-      setLastReserva(payload);
       setMsg({ type: "success", text: "Agendamento realizado com sucesso!" });
 
-      // ✅ gestor: recarrega tudo
+      // ✅ atualiza listas
+      await carregarMinhasReservas();
       if (isGestor) await carregarTodasReservas();
+
+      // limpa campos
+      setNome("");
+      setDataISO("");
+      setHoraHM("");
     } catch (e: any) {
       console.log("Erro ao agendar:", e);
 
-      const code = e?.code || "";
-      if (code === "permission-denied") {
+      if (String(e?.message || "").includes("SLOT_JA_EXISTE")) {
         setMsg({
           type: "error",
-          text: "Já existe agendamento para essa data e horário. Solicito que agende outro horário.",
+          text: "Já existe agendamento para essa data e horário. Escolha outro horário.",
         });
-      } else {
-        setMsg({ type: "error", text: "Erro ao agendar. Verifique o Firebase/Firestore." });
+        return;
       }
+
+      setMsg({ type: "error", text: "Erro ao agendar. Verifique o Firebase/Firestore." });
     } finally {
       setLoading(false);
     }
@@ -306,7 +309,12 @@ export default function ReservasScreen() {
         <Text style={styles.headerSubtitle}>Agende a utilização de áreas comuns</Text>
       </LinearGradient>
 
-      <View style={styles.content}>
+      {/* ✅ Scroll da tela inteira */}
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      >
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Áreas disponíveis</Text>
 
@@ -323,30 +331,38 @@ export default function ReservasScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ✅ Logo abaixo do quadrado (usuário vê a própria última) */}
-          {loadingLast ? (
-            <View style={styles.bookingBox}>
-              <Text style={styles.bookingTitle}>Agendamento</Text>
-              <Text style={styles.bookingText}>Carregando...</Text>
-            </View>
-          ) : lastReserva ? (
-            <View style={styles.bookingBox}>
-              <Text style={styles.bookingTitle}>Agendamento</Text>
-              <Text style={styles.bookingText}>
-                Nome: {lastReserva.nome}
-                {"\n"}
-                Data: {isoToBR(lastReserva.data)}
-                {"\n"}
-                Hora: {lastReserva.hora}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.bookingBox}>
-              <Text style={styles.bookingTitle}>Agendamento</Text>
-              <Text style={styles.bookingText}>Nenhum agendamento encontrado.</Text>
-            </View>
-          )}
+          {/* ✅ Sempre mostrar TODAS as reservas do usuário */}
+          <View style={styles.box}>
+            <View style={styles.boxHeaderRow}>
+              <Text style={styles.boxTitle}>Meus agendamentos</Text>
 
+              <TouchableOpacity style={styles.refreshBtn} activeOpacity={0.85} onPress={carregarMinhasReservas}>
+                <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
+                <Text style={styles.refreshText}>Atualizar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingMinhas ? (
+              <View style={{ paddingTop: 10 }}>
+                <ActivityIndicator />
+              </View>
+            ) : minhasReservas.length === 0 ? (
+              <Text style={styles.boxEmpty}>Nenhum agendamento encontrado.</Text>
+            ) : (
+              <View style={{ marginTop: 10 }}>
+                {minhasReservas.map((r, idx) => (
+                  <View key={`${r.uid}_${r.data}_${r.hora}_${idx}`} style={styles.item}>
+                    <Text style={styles.itemTitle}>{r.nome}</Text>
+                    <Text style={styles.itemSub}>
+                      {isoToBR(r.data)} • {r.hora}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* FORM */}
           {openForm && (
             <View style={styles.form}>
               <Text style={styles.formTitle}>Agendar Ginásio</Text>
@@ -409,17 +425,13 @@ export default function ReservasScreen() {
             </View>
           )}
 
-          {/* ✅ NOVO: lista para o gestor */}
+          {/* ✅ Gestor: lista completa com scroll (já está dentro do ScrollView) */}
           {isGestor && (
             <View style={styles.allBox}>
-              <View style={styles.allHeaderRow}>
-                <Text style={styles.allTitle}>Todas as reservas</Text>
+              <View style={styles.boxHeaderRow}>
+                <Text style={styles.boxTitle}>Todas as reservas</Text>
 
-                <TouchableOpacity
-                  style={styles.refreshBtn}
-                  activeOpacity={0.85}
-                  onPress={carregarTodasReservas}
-                >
+                <TouchableOpacity style={styles.refreshBtn} activeOpacity={0.85} onPress={carregarTodasReservas}>
                   <Ionicons name="refresh-outline" size={18} color={COLORS.primary} />
                   <Text style={styles.refreshText}>Atualizar</Text>
                 </TouchableOpacity>
@@ -430,27 +442,24 @@ export default function ReservasScreen() {
                   <ActivityIndicator />
                 </View>
               ) : allReservas.length === 0 ? (
-                <Text style={styles.allEmpty}>Nenhuma reserva encontrada.</Text>
+                <Text style={styles.boxEmpty}>Nenhuma reserva encontrada.</Text>
               ) : (
-                <FlatList
-                  data={allReservas}
-                  keyExtractor={(r, idx) => `${r.uid}_${r.area}_${r.data}_${r.hora}_${idx}`}
-                  scrollEnabled={false}
-                  renderItem={({ item }) => (
-                    <View style={styles.allItem}>
-                      <Text style={styles.allItemTitle}>{item.nome}</Text>
-                      <Text style={styles.allItemSub}>
-                        Área: {item.area} • {isoToBR(item.data)} • {item.hora}
+                <View style={{ marginTop: 10 }}>
+                  {allReservas.map((r, idx) => (
+                    <View key={`${r.uid}_${r.area}_${r.data}_${r.hora}_${idx}`} style={styles.item}>
+                      <Text style={styles.itemTitle}>{r.nome}</Text>
+                      <Text style={styles.itemSub}>
+                        Área: {r.area} • {isoToBR(r.data)} • {r.hora}
                       </Text>
-                      <Text style={styles.allItemSub2}>UID: {item.uid}</Text>
+                      <Text style={styles.itemSub2}>UID: {r.uid}</Text>
                     </View>
-                  )}
-                />
+                  ))}
+                </View>
               )}
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
 
       {/* iOS MODAL - DATA */}
       <Modal transparent visible={iosDateModal} animationType="fade" onRequestClose={() => setIosDateModal(false)}>
@@ -526,6 +535,7 @@ export default function ReservasScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
+
   header: {
     paddingTop: 14,
     paddingBottom: 22,
@@ -551,7 +561,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderRadius: 18,
     padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     shadowColor: "#000",
@@ -562,6 +571,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: { color: COLORS.text, fontWeight: "700", fontSize: 14, marginBottom: 12 },
+
   grid: { flexDirection: "row", alignItems: "flex-start" },
   tile: { width: 110, alignItems: "center", marginRight: 14 },
   tileIcon: {
@@ -574,7 +584,7 @@ const styles = StyleSheet.create({
   },
   tileLabel: { marginTop: 10, fontSize: 12, fontWeight: "600", color: COLORS.text },
 
-  bookingBox: {
+  box: {
     marginTop: 14,
     padding: 12,
     borderRadius: 14,
@@ -582,12 +592,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DEE7FF",
   },
-  bookingTitle: { fontWeight: "700", color: COLORS.text, marginBottom: 6 },
-  bookingText: { color: COLORS.muted, fontSize: 13, lineHeight: 18 },
+  boxHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  boxTitle: { fontWeight: "900", color: COLORS.text },
+  boxEmpty: { marginTop: 10, color: COLORS.muted, fontSize: 13 },
+
+  refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "#FFF",
+  },
+  refreshText: { fontWeight: "800", color: COLORS.primary, fontSize: 12 },
+
+  item: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  itemTitle: { fontWeight: "900", color: COLORS.text },
+  itemSub: { marginTop: 4, color: COLORS.muted, fontSize: 12 },
+  itemSub2: { marginTop: 2, color: COLORS.muted, fontSize: 11 },
 
   form: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border },
   formTitle: { fontWeight: "700", color: COLORS.text, marginBottom: 10 },
   label: { fontSize: 12, color: COLORS.text, fontWeight: "700", marginBottom: 6, marginTop: 10 },
+
   input: {
     height: 44,
     borderRadius: 12,
@@ -624,40 +661,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: "#FFF", fontWeight: "800" },
 
-  // ✅ gestor list styles
-  allBox: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  allHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  allTitle: { fontWeight: "800", color: COLORS.text },
-  refreshBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: "#FFF",
-  },
-  refreshText: { fontWeight: "800", color: COLORS.primary, fontSize: 12 },
-  allEmpty: { marginTop: 10, color: COLORS.muted },
-
-  allItem: {
-    marginTop: 10,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  allItemTitle: { fontWeight: "900", color: COLORS.text },
-  allItemSub: { marginTop: 4, color: COLORS.muted, fontSize: 12 },
-  allItemSub2: { marginTop: 2, color: COLORS.muted, fontSize: 11 },
+  allBox: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border },
 
   modalOverlay: {
     flex: 1,

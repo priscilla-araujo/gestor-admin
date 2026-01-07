@@ -21,27 +21,21 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-
-          <Stack.Screen name="sign-up" options={{ title: "Criar conta" }} />
-          <Stack.Screen name="comunicados" options={{ headerShown: false }} />
-
-
-          <Stack.Screen
-            name="forgot-password"
-            options={{ title: "Recuperar senha" }}
-          />
-
-          <Stack.Screen name="home" options={{ headerShown: false }} />
-     
+        {/* 🔥 HEADER REMOVIDO GLOBALMENTE */}
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="sign-up" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="home" />
+          <Stack.Screen name="comunicados" />
 
           {/* rotas geradas pelo template */}
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="modal"
-            options={{ presentation: "modal", title: "Modal" }}
-          />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
         </Stack>
 
         <StatusBar style="auto" />

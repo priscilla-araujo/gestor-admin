@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: -18,
+    marginTop: 13,
   },
 
   card: {
