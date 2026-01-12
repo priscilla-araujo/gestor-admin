@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: -20,
+    marginTop: 15,
   },
   gridCard: {
     backgroundColor: COLORS.cardBg,

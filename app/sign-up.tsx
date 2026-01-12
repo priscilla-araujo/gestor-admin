@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   appTitle: { color: "#FFF", fontSize: 24, fontWeight: "700" },
   appSubtitle: { color: "#E3EEFF", fontSize: 14, marginTop: 6 },
   card: {
-    marginTop: -30,
+    marginTop: 15,
     marginHorizontal: 20,
     backgroundColor: "#FFF",
     borderRadius: 20,

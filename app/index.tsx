@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   card: {
-    marginTop: -30,
+    marginTop: 15,
     marginHorizontal: 20,
     backgroundColor: "#FFF",
     borderRadius: 20,

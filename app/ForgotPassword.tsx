@@ -66,11 +66,11 @@ const ForgotPasswordScreen: React.FC = () => {
         </LinearGradient>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Digite seu email cadastrado</Text>
+          <Text style={styles.cardTitle}></Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Seu email"
+            placeholder="Digite seu email cadastrado"
             placeholderTextColor="#9FA5C0"
             autoCapitalize="none"
             keyboardType="email-address"
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   card: {
-    marginTop: -30,
+    marginTop: 15,
     marginHorizontal: 20,
     backgroundColor: "#FFF",
     borderRadius: 20,
