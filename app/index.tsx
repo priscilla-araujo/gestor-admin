@@ -60,7 +60,7 @@ const LoginScreen: React.FC = () => {
           colors={[COLORS.primary, COLORS.primaryDark]}
           style={styles.header}
         >
-          <Text style={styles.appTitle}>gestorAdmin</Text>
+          <Text style={styles.appTitle}>GestorAdmin</Text>
           <Text style={styles.appSubtitle}>Saiba tudo sobre seu condomínio</Text>
         </LinearGradient>
 

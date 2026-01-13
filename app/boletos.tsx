@@ -45,7 +45,7 @@ const COLORS = {
 
 type Boleto = {
   id: string;
-  label: string; // ex: "Boleto 01/2026"
+  label: string; // ex: "Fatura 01/2026"
   url: string;   // link do pdf
   createdAt: number;
 };
@@ -182,21 +182,21 @@ export default function BoletosScreen() {
           <Ionicons name="chevron-back" size={22} color="#FFF" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Boletos</Text>
-        <Text style={styles.headerSubtitle}>Baixe seus boletos do condomínio</Text>
+        <Text style={styles.headerTitle}>Faturas</Text>
+        <Text style={styles.headerSubtitle}>Baixe suas faturas do condomínio</Text>
       </LinearGradient>
 
       <View style={styles.content}>
         {/* ✅ Área do gestor */}
         {isGestor && (
           <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Adicionar boleto (Gestor)</Text>
+            <Text style={styles.formTitle}>Adicionar fatura (Gestor)</Text>
 
             <Text style={styles.label}>Nome</Text>
             <TextInput
               value={label}
               onChangeText={setLabel}
-              placeholder="Ex: Boleto 01/2026"
+              placeholder="Ex: Fatura 01/2026"
               placeholderTextColor="#9AA3B2"
               style={styles.input}
             />
@@ -228,7 +228,7 @@ export default function BoletosScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Boletos disponíveis</Text>
+        <Text style={styles.sectionTitle}>Faturas disponíveis</Text>
 
         {loadingList ? (
           <View style={{ paddingTop: 12 }}>
